@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
 import time
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
-# Speicher für empfangene Daten
+# Speicher für die empfangenen Sensordaten
 received_data = []
 
 @app.route('/')
@@ -12,22 +14,22 @@ def home():
 
 @app.route('/send-data', methods=['POST'])
 def receive_data():
+    global received_data
     try:
         data = request.json
         received_data.append(data)
+
+        # Sende die Daten über Websocket an verbundene Clients
+        socketio.emit('new_data', data)
+
         print(f"Received data: {data}")
         return {"status": "success", "message": "Data received"}, 200
     except Exception as e:
         return {"status": "error", "message": str(e)}, 400
 
-@app.route('/get-data', methods=['GET'])
-def get_data():
-    # Sende die letzten 20 Datenpunkte zurück
-    return jsonify(received_data[-20:])
-
 @app.route('/visualize')
 def visualize():
-    return render_template('visualization.html')  # Visualisierung im Browser
+    return render_template('visualization_websocket.html')  # Neue HTML-Datei für Websocket-Visualisierung
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000)

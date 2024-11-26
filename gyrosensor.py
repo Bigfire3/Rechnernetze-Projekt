@@ -47,4 +47,4 @@ while True:
     except Exception as e:
         print(f"Error sending data: {e}")
 
-    time.sleep(0.1)
+    time.sleep(0.001)
