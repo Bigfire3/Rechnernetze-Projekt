@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Websocket Sensor Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Real-time Sensor Data Visualization</h1>
+    <canvas id="sensorChart" width="800" height="400"></canvas>
+
+    <script>
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        const sensorChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Zeitstempel
+                datasets: [
+                    {
+                        label: 'Accelerometer X',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    },
+                    {
+                        label: 'Accelerometer Y',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    },
+                    {
+                        label: 'Accelerometer Z',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Timestamp'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Sensor Values'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Websocket-Verbindung herstellen
+        const socket = io();
+
+        socket.on('new_data', function (data) {
+            console.log("Received data via Websocket:", data);
+
+            const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
+            const accelX = data.accelerometer.x;
+            const accelY = data.accelerometer.y;
+            const accelZ = data.accelerometer.z;
+
+            // Labels und Daten hinzufügen
+            sensorChart.data.labels.push(timestamp);
+            sensorChart.data.datasets[0].data.push(accelX);
+            sensorChart.data.datasets[1].data.push(accelY);
+            sensorChart.data.datasets[2].data.push(accelZ);
+
+            // Entferne alte Daten, um das Diagramm sauber zu halten
+            if (sensorChart.data.labels.length > 20) {
+                sensorChart.data.labels.shift();
+                sensorChart.data.datasets[0].data.shift();
+                sensorChart.data.datasets[1].data.shift();
+                sensorChart.data.datasets[2].data.shift();
+            }
+
+            // Diagramm aktualisieren
+            sensorChart.update();
+        });
+    </script>
+</body>
+</html>
