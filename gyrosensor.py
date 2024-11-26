@@ -5,8 +5,8 @@ from lsm6dsox import LSM6DSOX
 from machine import Pin, I2C
 
 # WLAN-Details
-SSID = "S23 von Fabian"
-PASSWORD = "12345678"
+SSID = "NoahSteiner"
+PASSWORD = "18122000"
 
 # WLAN-Initialisierung
 wlan = network.WLAN(network.STA_IF)
@@ -27,7 +27,7 @@ print("IP address:", wlan.ifconfig()[0])
 # Gyrosensor initialisieren
 lsm = LSM6DSOX(I2C(0, scl=Pin(13), sda=Pin(12)))
 
-SERVER_URL = "http://192.168.113.31:5000/send-data"
+SERVER_URL = "http://192.168.45.31:5000/send-data"
 
 while True:
     accel_data = lsm.accel()
@@ -47,4 +47,4 @@ while True:
     except Exception as e:
         print(f"Error sending data: {e}")
 
-    time.sleep(0.001)
+    time.sleep(0.1)
