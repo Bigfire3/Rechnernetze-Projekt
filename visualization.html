@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Live Sensor Data Visualization</h1>
+    <canvas id="sensorChart" width="800" height="400"></canvas>
+
+    <script>
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        const sensorChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Zeitstempel
+                datasets: [
+                    {
+                        label: 'Accelerometer X',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Accelerometer Y',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Accelerometer Z',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Funktion, um Daten vom Server abzurufen und das Diagramm zu aktualisieren
+        async function fetchData() {
+            try {
+                const response = await fetch('/get-data');
+                const data = await response.json();
+
+                // Labels und Daten aktualisieren
+                const labels = data.map(item => new Date(item.timestamp * 1000).toLocaleTimeString());
+                const accelX = data.map(item => item.accelerometer.x);
+                const accelY = data.map(item => item.accelerometer.y);
+                const accelZ = data.map(item => item.accelerometer.z);
+
+                sensorChart.data.labels = labels;
+                sensorChart.data.datasets[0].data = accelX;
+                sensorChart.data.datasets[1].data = accelY;
+                sensorChart.data.datasets[2].data = accelZ;
+
+                sensorChart.update();
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Daten alle 1 Sekunde abrufen
+        setInterval(fetchData, 1000);
+    </script>
+</body>
+</html>
