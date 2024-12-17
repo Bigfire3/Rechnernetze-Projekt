@@ -3,22 +3,20 @@ import time
 import ujson
 from lsm6dsox import LSM6DSOX
 from machine import Pin, I2C
-import websocket  # WebSocket-Bibliothek für MicroPython
+import socket  # Für die TCP-Kommunikation
 
 # WLAN-Details
 SSID = "NoahSteiner"
 PASSWORD = "18122000"
 
 # Server-Details
-SERVER_IP = "192.168.45.31"  # IP-Adresse deines Flask-WebSocket-Servers
-SERVER_PORT = 5000
-WEB_SOCKET_URL = f"ws://{SERVER_IP}:{SERVER_PORT}/socket.io/?EIO=4&transport=websocket"
+SERVER_IP = "192.168.182.46"  # IP-Adresse des TCP-Servers
+SERVER_PORT = 5001            # Port des TCP-Servers
 
 # WLAN-Initialisierung
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 
-# Verbindung herstellen
 print("Connecting to WiFi...")
 wlan.connect(SSID, PASSWORD)
 
@@ -33,41 +31,44 @@ print("IP address:", wlan.ifconfig()[0])
 # Gyrosensor initialisieren
 lsm = LSM6DSOX(I2C(0, scl=Pin(13), sda=Pin(12)))
 
-# WebSocket-Verbindung herstellen
+# TCP-Verbindung herstellen
 try:
-    print("Connecting to WebSocket server...")
-    ws = websocket.websocket()
-    ws.connect(WEB_SOCKET_URL)
-    print("WebSocket connected!")
-except Exception as e:
-    print(f"Failed to connect to WebSocket server: {e}")
-    raise SystemExit
+    print("Connecting to TCP server...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP-Socket erstellen
+    s.connect((SERVER_IP, SERVER_PORT))  # Verbindung zum Server herstellen
+    print("TCP connected!")
 
-# Sensordaten kontinuierlich senden
-try:
+    # Sensordaten kontinuierlich senden
     while True:
-        accel_data = lsm.accel()
-        gyro_data = lsm.gyro()
-
-        # Sensordaten als JSON vorbereiten
-        sensor_data = {
-            "accelerometer": {"x": accel_data[0], "y": accel_data[1], "z": accel_data[2]},
-            "gyroscope": {"x": gyro_data[0], "y": gyro_data[1], "z": gyro_data[2]},
-            "timestamp": time.time(),
-        }
-
-        # Daten an den Server senden
         try:
-            json_data = ujson.dumps(sensor_data)  # Daten in JSON umwandeln
-            ws.send(json_data)
+            # Sensordaten auslesen
+            accel_data = lsm.accel()
+            gyro_data = lsm.gyro()
+
+            # Sensordaten als JSON vorbereiten
+            sensor_data = {
+                "accelerometer": {"x": accel_data[0], "y": accel_data[1], "z": accel_data[2]},
+                "gyroscope": {"x": gyro_data[0], "y": gyro_data[1], "z": gyro_data[2]},
+                "timestamp": time.time(),
+            }
+
+            # JSON-Daten in einen String umwandeln
+            json_data = ujson.dumps(sensor_data)
+
+            # Daten an den Server senden
+            s.sendall(json_data.encode('utf-8') + b'\n')  # Sende JSON-Daten mit Zeilenumbruch
             print(f"Sent: {json_data}")
+
+            time.sleep(0.1)  # 10 Hz Sendeintervall
+
         except Exception as e:
-            print(f"Error sending data: {e}")
-            ws.close()
-            raise SystemExit
+            print(f"Error while sending data: {e}")
+            break
 
-        time.sleep(0.1)  # Daten alle 0.1 Sekunden senden
+except Exception as e:
+    print(f"Failed to connect to TCP server: {e}")
 
-except KeyboardInterrupt:
-    print("Stopping WebSocket communication.")
-    ws.close()
+finally:
+    # Verbindung schließen
+    s.close()
+    print("TCP connection closed.")

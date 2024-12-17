@@ -79,7 +79,7 @@
             sensorChart.data.datasets[2].data.push(accelZ);
 
             // Entferne alte Daten, um das Diagramm sauber zu halten
-            if (sensorChart.data.labels.length > 20) {
+            if (sensorChart.data.labels.length > 50) {
                 sensorChart.data.labels.shift();
                 sensorChart.data.datasets[0].data.shift();
                 sensorChart.data.datasets[1].data.shift();
