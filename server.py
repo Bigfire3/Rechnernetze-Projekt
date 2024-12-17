@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
-import time
+from flask_socketio import SocketIO
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -29,7 +28,7 @@ def receive_data():
 
 @app.route('/visualize')
 def visualize():
-    return render_template('visualization_websocket.html')  # Neue HTML-Datei für Websocket-Visualisierung
+    return render_template('visualization_websocket.html')
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
