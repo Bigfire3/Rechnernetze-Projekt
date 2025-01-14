@@ -59,7 +59,7 @@ try:
             s.sendall(json_data.encode('utf-8') + b'\n')  # Sende JSON-Daten mit Zeilenumbruch
             print(f"Sent: {json_data}")
 
-            time.sleep(0.1)  # 10 Hz Sendeintervall
+            time.sleep(0.05)  # 20 Hz Sendeintervall
 
         except Exception as e:
             print(f"Error while sending data: {e}")

@@ -3,91 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Websocket Sensor Visualization</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>True Real-time Sensor Visualization</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        #sensorCanvas {
+            border: 1px solid black;
+            width: 90vw;
+            height: 70vh;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .legend div {
+            margin: 0 10px;
+            display: flex;
+            align-items: center;
+        }
+        .legend div span {
+            display: inline-block;
+            width: 20px;
+            height: 10px;
+            margin-right: 5px;
+        }
+        .timestamp {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+    </style>
 </head>
 <body>
-    <h1>Real-time Sensor Data Visualization</h1>
-    <canvas id="sensorChart" width="800" height="400"></canvas>
+    <h1>True Real-time Sensor Visualization</h1>
+    <canvas id="sensorCanvas"></canvas>
+
+    <!-- Legende hinzufügen -->
+    <div class="legend">
+        <div><span style="background: red;"></span>Gyro X</div>
+        <div><span style="background: blue;"></span>Gyro Y</div>
+        <div><span style="background: green;"></span>Gyro Z</div>
+    </div>
+
+    <!-- Aktueller Timestamp -->
+    <div id="timestamp" class="timestamp"></div>
 
     <script>
-        const ctx = document.getElementById('sensorChart').getContext('2d');
-        const sensorChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [], // Zeitstempel
-                datasets: [
-                    {
-                        label: 'Gyro X',
-                        data: [],
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 2,
-                        fill: false
-                    },
-                    {
-                        label: 'Gyro Y',
-                        data: [],
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 2,
-                        fill: false
-                    },
-                    {
-                        label: 'Gyro Z',
-                        data: [],
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 2,
-                        fill: false
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Timestamp'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Sensor Values'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // Websocket-Verbindung herstellen
+        // WebSocket-Verbindung herstellen
         const socket = io();
 
-        socket.on('new_data', function (data) {
-            console.log("Received data via Websocket:", data);
+        // Canvas-Setup
+        const canvas = document.getElementById('sensorCanvas');
+        const ctx = canvas.getContext('2d');
 
-            const timestamp = new Date(data.timestamp * 1000).toLocaleTimeString();
-            const accelX = data.accelerometer.x;
-            const accelY = data.accelerometer.y;
-            const accelZ = data.accelerometer.z;
+        canvas.width = window.innerWidth * 0.9;
+        canvas.height = window.innerHeight * 0.7;
 
-            // Labels und Daten hinzufügen
-            sensorChart.data.labels.push(timestamp);
-            sensorChart.data.datasets[0].data.push(accelX);
-            sensorChart.data.datasets[1].data.push(accelY);
-            sensorChart.data.datasets[2].data.push(accelZ);
+        // Datenpuffer
+        const maxDataPoints = 300; // Maximale Anzahl an Datenpunkten im Fenster
+        const sensorData = {
+            timestamps: [],
+            gyroX: [],
+            gyroY: [],
+            gyroZ: []
+        };
 
-            // Entferne alte Daten, um das Diagramm sauber zu halten
-            if (sensorChart.data.labels.length > 50) {
-                sensorChart.data.labels.shift();
-                sensorChart.data.datasets[0].data.shift();
-                sensorChart.data.datasets[1].data.shift();
-                sensorChart.data.datasets[2].data.shift();
+        // Skalierungsfaktoren
+        const scaleX = canvas.width / maxDataPoints;
+        const scaleY = canvas.height / 2; // Mitte des Canvas als Nullpunkt
+
+        // Echtzeit-Datenverarbeitung
+        socket.on('new_data', (data) => {
+            const timestampUTC = new Date(data.timestamp * 1000); // UNIX-Timestamp in Millisekunden
+            const timestampBerlin = timestampUTC.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' });
+            
+            const accelX = data.accelerometer?.x || 0;
+            const accelY = data.accelerometer?.y || 0;
+            const accelZ = data.accelerometer?.z || 0;
+
+            // Daten hinzufügen
+            sensorData.timestamps.push(timestampBerlin);
+            sensorData.gyroX.push(accelX);
+            sensorData.gyroY.push(accelY);
+            sensorData.gyroZ.push(accelZ);
+
+            // Älteste Daten entfernen
+            if (sensorData.timestamps.length > maxDataPoints) {
+                sensorData.timestamps.shift();
+                sensorData.gyroX.shift();
+                sensorData.gyroY.shift();
+                sensorData.gyroZ.shift();
             }
 
-            // Diagramm aktualisieren
-            sensorChart.update();
+            drawGraph();
+            updateTimestamp(timestampBerlin);
+        });
+
+        // Zeichne die Daten auf dem Canvas
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Achsen zeichnen
+            ctx.strokeStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(0, scaleY); // X-Achse
+            ctx.lineTo(canvas.width, scaleY);
+            ctx.stroke();
+
+            // Y-Achse-Einteilung
+            for (let i = -1; i <= 1; i += 0.5) {
+                const y = scaleY - i * (scaleY / 2);
+                ctx.strokeStyle = '#ccc';
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+                ctx.fillText(i.toFixed(1), 5, y - 5);
+            }
+
+            // X-Achse-Einteilung
+            for (let i = 0; i < sensorData.timestamps.length; i += 50) {
+                const x = i * scaleX;
+                ctx.fillText(sensorData.timestamps[i], x, canvas.height - 5);
+            }
+
+            // Linien für Gyro X
+            drawLine(sensorData.gyroX, 'red');
+            // Linien für Gyro Y
+            drawLine(sensorData.gyroY, 'blue');
+            // Linien für Gyro Z
+            drawLine(sensorData.gyroZ, 'green');
+        }
+
+        // Funktion zum Zeichnen einer Linie
+        function drawLine(data, color) {
+            if (data.length < 2) return;
+
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+
+            for (let i = 0; i < data.length; i++) {
+                const x = i * scaleX;
+                const y = scaleY - data[i] * (scaleY / 2); // Skalierung der Y-Werte
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.stroke();
+        }
+
+        // Timestamp aktualisieren
+        function updateTimestamp(timestamp) {
+            document.getElementById('timestamp').innerText = `Timestamp: ${timestamp}`;
+        }
+
+        // Fenstergröße anpassen
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth * 0.9;
+            canvas.height = window.innerHeight * 0.7;
+            drawGraph();
         });
     </script>
 </body>
