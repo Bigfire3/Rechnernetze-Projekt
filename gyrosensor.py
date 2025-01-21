@@ -6,30 +6,30 @@ from machine import Pin, I2C
 import socket  # Für die TCP-Kommunikation
 
 # WLAN-Details
-SSID = "NoahSteiner"
-PASSWORD = "18122000"
+SSID = "NoahSteiner"  # Name des WLANs
+PASSWORD = "18122000"  # Passwort des WLANs
 
 # Server-Details
 SERVER_IP = "192.168.182.46"  # IP-Adresse des TCP-Servers
-SERVER_PORT = 5001            # Port des TCP-Servers
+SERVER_PORT = 5001  # Port des TCP-Servers
 
 # WLAN-Initialisierung
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
+wlan = network.WLAN(network.STA_IF)  # WLAN-Schnittstelle im Station-Modus
+wlan.active(True)  # WLAN aktivieren
 
 print("Connecting to WiFi...")
-wlan.connect(SSID, PASSWORD)
+wlan.connect(SSID, PASSWORD)  # Verbindung zum WLAN herstellen
 
 # Warten, bis die Verbindung hergestellt ist
 while not wlan.isconnected():
-    print(".", end="")
-    time.sleep(1)
+    print(".", end="")  # Fortschritt anzeigen
+    time.sleep(1)  # 1 Sekunde warten
 
 print("\nWiFi connected!")
-print("IP address:", wlan.ifconfig()[0])
+print("IP address:", wlan.ifconfig()[0])  # IP-Adresse anzeigen
 
 # Gyrosensor initialisieren
-lsm = LSM6DSOX(I2C(0, scl=Pin(13), sda=Pin(12)))
+lsm = LSM6DSOX(I2C(0, scl=Pin(13), sda=Pin(12)))  # Sensor mit I2C verbinden
 
 # TCP-Verbindung herstellen
 try:
@@ -42,28 +42,28 @@ try:
     while True:
         try:
             # Sensordaten auslesen
-            accel_data = lsm.accel()
-            gyro_data = lsm.gyro()
+            accel_data = lsm.accel()  # Beschleunigungsdaten
+            gyro_data = lsm.gyro()  # Gyroskopdaten
 
             # Sensordaten als JSON vorbereiten
             sensor_data = {
                 "accelerometer": {"x": accel_data[0], "y": accel_data[1], "z": accel_data[2]},
                 "gyroscope": {"x": gyro_data[0], "y": gyro_data[1], "z": gyro_data[2]},
-                "timestamp": time.time(),
+                "timestamp": time.time(),  # Aktueller Zeitstempel
             }
 
             # JSON-Daten in einen String umwandeln
             json_data = ujson.dumps(sensor_data)
 
             # Daten an den Server senden
-            s.sendall(json_data.encode('utf-8') + b'\n')  # Sende JSON-Daten mit Zeilenumbruch
+            s.sendall(json_data.encode('utf-8') + b'\n')  # Senden der Daten mit Zeilenumbruch
             print(f"Sent: {json_data}")
 
             time.sleep(0.05)  # 20 Hz Sendeintervall
 
         except Exception as e:
             print(f"Error while sending data: {e}")
-            break
+            break  # Schleife beenden bei Fehler
 
 except Exception as e:
     print(f"Failed to connect to TCP server: {e}")
@@ -71,4 +71,4 @@ except Exception as e:
 finally:
     # Verbindung schließen
     s.close()
-    print("TCP connection closed.")
+    print("TCP connection closed.")  # Ressourcen freigeben

@@ -1,109 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>True Real-time Sensor Visualization</title>
+    <!-- Grundlegende HTML-Deklaration und Meta-Informationen -->
+    <meta charset="UTF-8"> <!-- Zeichensatz für die Kodierung der Seite -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsives Design für mobile Geräte -->
+    <title>True Real-time Sensor Visualization</title> <!-- Titel der Seite -->
+
+    <!-- Einbindung der Socket.IO-Bibliothek für WebSockets -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+
+    <!-- Interne CSS-Regeln für das Layout -->
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial, sans-serif; /* Schriftart für die gesamte Seite */
             margin: 0;
             padding: 0;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: center; /* Inhalt zentrieren */
         }
         h1 {
-            text-align: center;
+            text-align: center; /* Titel in der Mitte ausrichten */
         }
         #sensorCanvas {
-            border: 1px solid black;
-            width: 90vw;
-            height: 70vh;
+            border: 1px solid black; /* Schwarzer Rahmen um die Zeichenfläche */
+            width: 90vw; /* 90% der Breite des Ansichtsfensters */
+            height: 70vh; /* 70% der Höhe des Ansichtsfensters */
         }
         .legend {
-            display: flex;
-            justify-content: center;
+            display: flex; /* Horizontale Anordnung der Legende */
+            justify-content: center; /* Legende in der Mitte ausrichten */
             margin-top: 10px;
         }
         .legend div {
-            margin: 0 10px;
+            margin: 0 10px; /* Abstand zwischen den Legenden-Elementen */
             display: flex;
-            align-items: center;
+            align-items: center; /* Symbole und Text vertikal ausrichten */
         }
         .legend div span {
             display: inline-block;
-            width: 20px;
-            height: 10px;
-            margin-right: 5px;
+            width: 20px; /* Breite des Farbsymbols */
+            height: 10px; /* Höhe des Farbsymbols */
+            margin-right: 5px; /* Abstand zwischen Symbol und Text */
         }
         .timestamp {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.9em;
+            position: absolute; /* Fester Platz in der Ecke */
+            bottom: 10px; /* Abstand vom unteren Rand */
+            right: 10px; /* Abstand vom rechten Rand */
+            background: rgba(0, 0, 0, 0.7); /* Halbtransparenter Hintergrund */
+            color: white; /* Weiße Schriftfarbe */
+            padding: 5px 10px; /* Innenabstand */
+            border-radius: 5px; /* Abgerundete Ecken */
+            font-size: 0.9em; /* Kleinere Schriftgröße */
         }
     </style>
 </head>
 <body>
-    <h1>True Real-time Sensor Visualization</h1>
+    <h1>True Real-time Sensor Visualization</h1> <!-- Hauptüberschrift -->
+
+    <!-- Zeichenfläche zur Anzeige der Sensor-Daten -->
     <canvas id="sensorCanvas"></canvas>
 
-    <!-- Legende hinzufügen -->
+    <!-- Legende für die Farben der Sensor-Daten -->
     <div class="legend">
-        <div><span style="background: red;"></span>Gyro X</div>
-        <div><span style="background: blue;"></span>Gyro Y</div>
-        <div><span style="background: green;"></span>Gyro Z</div>
+        <div><span style="background: red;"></span>Gyro X</div> <!-- Rot: Gyroskop X -->
+        <div><span style="background: blue;"></span>Gyro Y</div> <!-- Blau: Gyroskop Y -->
+        <div><span style="background: green;"></span>Gyro Z</div> <!-- Grün: Gyroskop Z -->
     </div>
 
-    <!-- Aktueller Timestamp -->
+    <!-- Bereich zur Anzeige des aktuellen Zeitstempels -->
     <div id="timestamp" class="timestamp"></div>
 
     <script>
         // WebSocket-Verbindung herstellen
-        const socket = io();
+        const socket = io(); // Verbindung zum WebSocket-Server aufbauen
 
         // Canvas-Setup
-        const canvas = document.getElementById('sensorCanvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.getElementById('sensorCanvas'); // Zeichenfläche auswählen
+        const ctx = canvas.getContext('2d'); // 2D-Zeichenkontext initialisieren
 
+        // Canvas-Größe dynamisch anpassen
         canvas.width = window.innerWidth * 0.9;
         canvas.height = window.innerHeight * 0.7;
 
-        // Datenpuffer
-        const maxDataPoints = 300; // Maximale Anzahl an Datenpunkten im Fenster
+        // Puffer für Sensor-Daten
+        const maxDataPoints = 300; // Maximale Anzahl von Datenpunkten
         const sensorData = {
-            timestamps: [],
-            gyroX: [],
-            gyroY: [],
-            gyroZ: []
+            timestamps: [], // Zeitstempel
+            gyroX: [],      // Werte für Gyroskop X
+            gyroY: [],      // Werte für Gyroskop Y
+            gyroZ: []       // Werte für Gyroskop Z
         };
 
-        // Skalierungsfaktoren
-        const scaleX = canvas.width / maxDataPoints;
-        const scaleY = canvas.height / 2; // Mitte des Canvas als Nullpunkt
+        // Skalierungsfaktoren für die Darstellung
+        const scaleX = canvas.width / maxDataPoints; // Breite pro Datenpunkt
+        const scaleY = canvas.height / 2; // Y-Mitte als Nullpunkt
 
-        // Echtzeit-Datenverarbeitung
+        // Verarbeitung eingehender WebSocket-Daten
         socket.on('new_data', (data) => {
             const timestampUTC = new Date(data.timestamp * 1000); // UNIX-Timestamp in Millisekunden
             const timestampBerlin = timestampUTC.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' });
             
-            const accelX = data.accelerometer?.x || 0;
-            const accelY = data.accelerometer?.y || 0;
-            const accelZ = data.accelerometer?.z || 0;
+            const accelX = data.accelerometer?.x || 0; // Beschleunigung X (Fallback: 0)
+            const accelY = data.accelerometer?.y || 0; // Beschleunigung Y
+            const accelZ = data.accelerometer?.z || 0; // Beschleunigung Z
 
-            // Daten hinzufügen
+            // Daten in den Puffer einfügen
             sensorData.timestamps.push(timestampBerlin);
             sensorData.gyroX.push(accelX);
             sensorData.gyroY.push(accelY);
             sensorData.gyroZ.push(accelZ);
 
-            // Älteste Daten entfernen
+            // Älteste Daten entfernen, wenn Limit erreicht
             if (sensorData.timestamps.length > maxDataPoints) {
                 sensorData.timestamps.shift();
                 sensorData.gyroX.shift();
@@ -111,16 +119,16 @@
                 sensorData.gyroZ.shift();
             }
 
-            drawGraph();
-            updateTimestamp(timestampBerlin);
+            drawGraph(); // Graph neu zeichnen
+            updateTimestamp(timestampBerlin); // Zeitstempel aktualisieren
         });
 
-        // Zeichne die Daten auf dem Canvas
+        // Funktion zum Zeichnen des Graphen
         function drawGraph() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Canvas leeren
 
             // Achsen zeichnen
-            ctx.strokeStyle = '#000';
+            ctx.strokeStyle = '#000'; // Schwarz für Achsen
             ctx.beginPath();
             ctx.moveTo(0, scaleY); // X-Achse
             ctx.lineTo(canvas.width, scaleY);
@@ -129,18 +137,18 @@
             // Y-Achse-Einteilung
             for (let i = -1; i <= 1; i += 0.5) {
                 const y = scaleY - i * (scaleY / 2);
-                ctx.strokeStyle = '#ccc';
+                ctx.strokeStyle = '#ccc'; // Graue Linien für Raster
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
                 ctx.stroke();
-                ctx.fillText(i.toFixed(1), 5, y - 5);
+                ctx.fillText(i.toFixed(1), 5, y - 5); // Beschriftung der Y-Achse
             }
 
             // X-Achse-Einteilung
             for (let i = 0; i < sensorData.timestamps.length; i += 50) {
                 const x = i * scaleX;
-                ctx.fillText(sensorData.timestamps[i], x, canvas.height - 5);
+                ctx.fillText(sensorData.timestamps[i], x, canvas.height - 5); // Zeitstempel
             }
 
             // Linien für Gyro X
@@ -153,34 +161,34 @@
 
         // Funktion zum Zeichnen einer Linie
         function drawLine(data, color) {
-            if (data.length < 2) return;
+            if (data.length < 2) return; // Zu wenige Daten für eine Linie
 
-            ctx.strokeStyle = color;
+            ctx.strokeStyle = color; // Farbe der Linie setzen
             ctx.beginPath();
 
             for (let i = 0; i < data.length; i++) {
                 const x = i * scaleX;
                 const y = scaleY - data[i] * (scaleY / 2); // Skalierung der Y-Werte
                 if (i === 0) {
-                    ctx.moveTo(x, y);
+                    ctx.moveTo(x, y); // Anfangspunkt setzen
                 } else {
-                    ctx.lineTo(x, y);
+                    ctx.lineTo(x, y); // Linie zum nächsten Punkt
                 }
             }
 
-            ctx.stroke();
+            ctx.stroke(); // Linie zeichnen
         }
 
-        // Timestamp aktualisieren
+        // Zeitstempel aktualisieren
         function updateTimestamp(timestamp) {
             document.getElementById('timestamp').innerText = `Timestamp: ${timestamp}`;
         }
 
-        // Fenstergröße anpassen
+        // Größe des Canvas an Fensteränderungen anpassen
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth * 0.9;
             canvas.height = window.innerHeight * 0.7;
-            drawGraph();
+            drawGraph(); // Graph nach Größenänderung neu zeichnen
         });
     </script>
 </body>
